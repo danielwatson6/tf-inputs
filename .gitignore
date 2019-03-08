@@ -2,6 +2,10 @@
 build.sh
 deploy.sh
 
+# setuptools
+build/
+dist/
+
 # python
 *.py[cod]
 __pycache__/
