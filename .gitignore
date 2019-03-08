@@ -1,0 +1,17 @@
+# shell scripts
+build.sh
+deploy.sh
+
+# python
+*.py[cod]
+__pycache__/
+
+# virtualenv
+env/
+
+# macOS
+.DS_Store
+Icon?
+
+# text editors
+.vscode/
