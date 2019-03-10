@@ -1,5 +1,3 @@
-"""Setup script for the tfbuild package."""
-
 from setuptools import setup, find_packages
 
 
@@ -25,5 +23,5 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages("src"),
-    install_requires=open("requirements.txt").read().split(),
+    # install_requires=open("requirements.txt").read().split(),
 )
