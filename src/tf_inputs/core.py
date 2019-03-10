@@ -95,8 +95,8 @@ class Input:
 
         def map_fn(filename):
             file_contents = tf.io.read_file(filename)
-            if read_fn is not None:
-                file_contents = read_fn(file_contents)
+            if parse_fn is not None:
+                file_contents = parse_fn(file_contents)
             return file_contents
 
         def dataset_fn():
@@ -108,6 +108,7 @@ class Input:
             )
             if flatten:
                 dataset = dataset.flat_map(tf.data.Dataset.from_tensor_slices)
+            return dataset
 
         return cls.from_dataset_fn(dataset_fn)
 
@@ -120,7 +121,7 @@ class Input:
     @classmethod
     def from_dataset_fn(cls, dataset_fn, **kwargs):
         self = cls(**kwargs)
-        self.read_data = dataset_fn.__get__(self)
+        self.read_data = dataset_fn
         return self
 
     @property
