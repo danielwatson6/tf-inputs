@@ -56,7 +56,7 @@ class Input:
 
         Args
             dir_path (str): path to the directory to recursively search.
-            
+
         Returns
             Input: an input pipeline.
 
@@ -110,7 +110,7 @@ class Input:
                 dataset = dataset.flat_map(tf.data.Dataset.from_tensor_slices)
             return dataset
 
-        return cls.from_dataset_fn(dataset_fn)
+        return cls.from_dataset_fn(dataset_fn, **kwargs)
 
     @classmethod
     def from_dataset(cls, dataset, **kwargs):
@@ -278,14 +278,14 @@ class TrainValidInput(Input):
         if self._train_handle is None:
             if session is None:
                 session = tf.get_default_session()
-            self._train_handle = session.run(self.train_input.string_handle())
+            self._train_handle = session.run(self.train_input.iterator.string_handle())
         return self._train_handle
 
     def get_valid_handle(self, session=None):
         if self._valid_handle is None:
             if session is None:
                 session = tf.get_default_session()
-            self._valid_handle = session.run(self.valid_input.string_handle())
+            self._valid_handle = session.run(self.valid_input.iterator.string_handle())
         return self._valid_handle
 
     # The overridables should NOT be called; the datasets fed should read the data and
@@ -326,11 +326,18 @@ class TrainValidInput(Input):
             The returned values after running each op.
 
         """
+        _run = lambda h: super(TrainValidInput, self).run(
+            ops, feed_dict={self.handle: h}, **kwargs
+        )
         if valid:
-            handle = self.valid_handle
-        else:
-            handle = self.train_handle
-        return super().run(ops, feed_dict={self.handle: handle}, **kwargs)
+            # If the validation iterator is exhausted, reset it and run normally.
+            try:
+                return _run(self.get_valid_handle())
+            except tf.errors.OutOfRangeError:
+                super().run(self.valid_input.initializer, **kwargs)
+                return _run(self.get_valid_handle())
+
+        return _run(self.get_train_handle())
 
 
 class TrainValidSplit(TrainValidInput):
