@@ -93,22 +93,26 @@ class Input:
 
         """
 
-        def map_fn(filename):
-            file_contents = tf.io.read_file(filename)
+        def map_fn(filename_tensor):
+            file_contents = tf.io.read_file(filename_tensor)
             if parse_fn is not None:
                 file_contents = parse_fn(file_contents)
             return file_contents
 
         def dataset_fn():
             dataset = tf.data.Dataset.from_tensor_slices(file_paths)
-            if "num_parallel_calls" not in kwargs:
+            if not "num_parallel_calls" in kwargs:
                 kwargs["num_parallel_calls"] = 1
-            dataset = dataset.map(
-                map_fn, num_parallel_calls=kwargs["num_parallel_calls"]
-            )
             if flatten:
-                dataset = dataset.flat_map(tf.data.Dataset.from_tensor_slices)
-            return dataset
+                # Interleave with cycle_length=1 is exactly a flat map, but allows to
+                # specify the nummber of parallel calls.
+                return dataset.interleave(
+                    lambda f: tf.data.Dataset.from_tensor_slices(map_fn(f)),
+                    1,
+                    num_parallel_calls=kwargs["num_parallel_calls"],
+                )
+
+            return dataset.map(map_fn, num_parallel_calls=kwargs["num_parallel_calls"])
 
         return cls.from_dataset_fn(dataset_fn, **kwargs)
 

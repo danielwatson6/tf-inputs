@@ -20,11 +20,14 @@ def string_split(strings, sep=" ", pad_value="<PAD>"):
         Tensor: a 2D Tensor of dtype string.
 
     """
-    original_shape = tf.shape(strings)
+    original_shape = strings.shape
     if len(strings.shape) == 0:
         strings = tf.expand_dims(strings, 0)
-    sp = tf.strings.split(strings, sep=sep)  # a SparseTensor.
-    return tf.sparse.to_dense(sp, default_value=pad_value)
+    sparse = tf.strings.split(strings, sep=sep)  # a SparseTensor.
+    dense = tf.sparse.to_dense(sparse, default_value=pad_value)
+    if len(original_shape) == 0:
+        return dense[0]
+    return dense
 
 
 class Mapping:
