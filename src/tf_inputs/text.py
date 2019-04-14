@@ -10,24 +10,38 @@ def string_split(strings, sep=" ", pad_value="<PAD>"):
     """Get a padded string tensor by splitting the given string tensor.
 
     Args
-        strings (Tensor): a 1D Tensor of dtype string.
+        strings (Tensor): a rank n Tensor of dtype string.
 
     Keyword args
         sep (str): split delimiter. If set to '', will split by characters.
         pad_value (str): string to use for padding.
 
     Returns
-        Tensor: a 2D Tensor of dtype string.
+        Tensor: a rank n+1 Tensor of dtype string.
 
     """
+    if not isinstance(strings, tf.Tensor):
+        strings = tf.convert_to_tensor(strings)
+
     original_shape = strings.shape
-    if len(strings.shape) == 0:
-        strings = tf.expand_dims(strings, 0)
-    sparse = tf.strings.split(strings, sep=sep)  # a SparseTensor.
-    dense = tf.sparse.to_dense(sparse, default_value=pad_value)
+
+    dense_string_split = lambda x: tf.sparse.to_dense(
+        tf.strings.split(x, sep=sep), default_value=pad_value
+    )
+
     if len(original_shape) == 0:
-        return dense[0]
-    return dense
+        strings = tf.expand_dims(strings, 0)
+    if len(original_shape) > 1:
+        strings = tf.reshape(strings, [-1])
+
+    result = dense_string_split(strings)
+
+    if len(original_shape) == 0:
+        return result[0]
+    if len(original_shape) > 1:
+        return tf.reshape(result, list(original_shape) + [result.shape[-1]])
+
+    return result
 
 
 class Mapping:
@@ -52,13 +66,14 @@ class Mapping:
                         else:
                             line_iter = line.split(sep)
                         for token in line_iter:
-                            type_counts.update((token,))
+                            type_counts.update((token.strip(),))
 
             with open(save_path, "w") as f:
                 f.write("<PAD>\n<UNK>\n<SOS>\n<EOS>\n")
-                if self.vocab_size is None:
-                    for type_, _ in type_counts.most_common(self.vocab_size - 4):
-                        f.write(type_ + "\n")
+                if self.vocab_size is not None:
+                    for type_, count in type_counts.most_common(self.vocab_size - 4):
+                        if type_ not in ["<PAD>", "<UNK>", "<SOS>", "<EOS>"]:
+                            f.write(type_ + "\n")
                 else:
                     for type_, _ in type_counts.most_common():
                         f.write(type_ + "\n")
