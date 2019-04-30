@@ -14,6 +14,7 @@ class Input:
         num_parallel_calls=1,
         prefetch_size=1,
         preprocess_fn=None,
+        preprocess_batch_fn=None,
         shuffle_size=10000,
         name="input_pipeline",
     ):
@@ -26,7 +27,10 @@ class Input:
             prefetch_size (int): number of batches to prefetch in memory. Set to 0 for
                 no prefetch-- though this defeats the point of having a multithreaded
                 input pipeline.
-            preprocess_fn (function): function to preprocess individual inputs. This
+            preprocess_fn (function): function to preprocess individual inputs prior to
+                batching. This should manipulate Tensors. If native python is required,
+                wrap the logic with `tf.py_func`.
+            preprocess_batch_fn (function): function to preprocess input batches. This
                 should manipulate Tensors. If native python is required, wrap the logic
                 with `tf.py_func`.
             shuffle_size (int): number of examples per shuffling group. Set to 0 for no
@@ -38,6 +42,7 @@ class Input:
         self._num_parallel_calls = num_parallel_calls
         self._prefetch_size = prefetch_size
         self._preprocess_fn = preprocess_fn
+        self._preprocess_batch_fn = preprocess_batch_fn
         self._shuffle_size = shuffle_size
         self._name = name
 
@@ -181,17 +186,21 @@ class Input:
 
         """
         if self._shuffle_size:
-            dataset = dataset.shuffle(self._shuffle_size)
+            self._dataset = dataset.shuffle(self._shuffle_size)
 
         if self._preprocess_fn is None:
-            self._dataset = dataset.batch(self._batch_size)
+            self._dataset = self._dataset.batch(self._batch_size)
         else:
-            self._dataset = dataset.apply(
+            self._dataset = self._dataset.apply(
                 tf.data.experimental.map_and_batch(
                     self._preprocess_fn,
                     self._batch_size,
                     num_parallel_calls=self._num_parallel_calls,
                 )
+            )
+        if self._preprocess_batch_fn is not None:
+            self._dataset = self._dataset.map(
+                self._preprocess_batch_fn, num_parallel_calls=self._num_parallel_calls
             )
 
     def __call__(self):
